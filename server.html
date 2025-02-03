@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Server Status</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f4f4f4;
+    }
+    h1 {
+      text-align: center;
+    }
+    pre {
+      background-color: #f4f4f4;
+      padding: 20px;
+      border-radius: 5px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      background-color: #fff;
+      border: 1px solid #ddd;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Server Status</h1>
+
+  <div id="status">
+    <p>Loading server status...</p>
+  </div>
+
+  <script>
+    // Fetch data from the server-side API endpoint that retrieves data from the external API
+    fetch('/api/currentStatus')
+      .then(response => response.json())
+      .then(data => {
+        // Directly display the raw JSON response
+        document.getElementById('status').innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+      })
+      .catch(error => {
+        // Handle any errors during the fetch
+        console.error('Error fetching server status:', error);
+        document.getElementById('status').innerHTML = '<p>Error fetching data. Please try again later.</p>';
+      });
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live API Data</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+    #apiResponse {
+      margin-top: 20px;
+    }
+    table {
+      width: 80%;
+      margin: 20px auto;
+      border-collapse: collapse;
+      text-align: left;
+    }
+    table, th, td {
+      border: 1px solid #ddd;
+    }
+    th, td {
+      padding: 10px;
+    }
+    th {
+      background-color: #f4f4f4;
+    }
+    pre {
+      background-color: #f4f4f4;
+      padding: 15px;
+      border-radius: 5px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .center {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    #searchContainer {
+      margin: 20px auto;
+      text-align: center;
+    }
+    #searchInput {
+      padding: 10px;
+      width: 300px;
+      margin-right: 10px;
+    }
+    #searchButton, #graphButton {
+      padding: 10px;
+    }
+    canvas {
+      max-width: 80%;
+      margin: 30px auto;
+      display: block;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <center>
+    <h1>API Data Fetcher</h1>
+    <p>This website will fetch data from the API and display it below:</p>
+    
+    <button id="fetchDataButton">Fetch Live Data</button>
+
+    <div id="searchContainer">
+      <input type="text" id="searchInput" placeholder="Enter Monitor ID">
+      <button id="searchButton">Search Monitor</button>
+    </div>
+
+    <div id="apiResponse"></div>
+
+    <!-- Button to generate the graph -->
+    <button id="graphButton">Generate Graph</button>
+
+    <!-- Graph showing monitor statuses -->
+    <canvas id="statusChart" width="400" height="200" style="display:none;"></canvas>
+  
+    <button id="fetchServerDataButton">Fetch Server Data</button>
+
+    <div id="serverResponse"></div>
+  
+  </center>
+
+  <script>
+    const apiResponseDiv = document.getElementById("apiResponse");
+    const fetchDataButton = document.getElementById("fetchDataButton");
+    const searchButton = document.getElementById("searchButton");
+    const searchInput = document.getElementById("searchInput");
+    const graphButton = document.getElementById("graphButton");
+    const statusChartCanvas = document.getElementById("statusChart");
+    let statusChart = null;
+    let monitorsData = []; // To store fetched data for later graph generation
+  
+    fetchDataButton.addEventListener("click", async () => {
+      apiResponseDiv.innerHTML = "Loading...";
+      const apiUrl = "http://localhost:3001/api/fetchData";
+  
+      try {
+        const response = await fetch(apiUrl);
+        if (!response.ok) throw new Error(`Server Error: ${response.status}`);
+        const data = await response.json();
+        monitorsData = data.data.monitors; // Store fetched monitors data
+        displayTable(monitorsData);
+      } catch (error) {
+        apiResponseDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+      }
+    });
+  
+    searchButton.addEventListener("click", async () => {
+      const monitorId = searchInput.value.trim();
+      if (!monitorId) {
+        apiResponseDiv.innerHTML = `<p style="color: red;">Please enter a Monitor ID.</p>`;
+        return;
+      }
+  
+      apiResponseDiv.innerHTML = "Searching...";
+      const apiUrl = `http://localhost:3001/api/fetchData?monitor_id=${monitorId}`;
+  
+      try {
+        const response = await fetch(apiUrl);
+        if (!response.ok) throw new Error(`Server Error: ${response.status}`);
+        const data = await response.json();
+  
+        if (data.data && data.data.monitors.length > 0) {
+          displayMonitorDetails(data.data.monitors[0]);
+          removeChart(); // Remove chart if search is specific monitor
+        } else {
+          apiResponseDiv.innerHTML = `<p style="color: red;">No monitor found with ID: ${monitorId}</p>`;
+        }
+      } catch (error) {
+        apiResponseDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+      }
+    });
+
+    graphButton.addEventListener("click", () => {
+      if (monitorsData.length > 0) {
+        plotStatusGraph(monitorsData);
+      } else {
+        apiResponseDiv.innerHTML = `<p style="color: red;">Please fetch the data first.</p>`;
+      }
+    });
+  
+    function displayTable(monitors) {
+      let tableHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Monitor ID</th>
+              <th>Name</th>
+              <th>Monitor Type</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+  
+      monitors.forEach(monitor => {
+        tableHTML += `
+          <tr>
+            <td>${monitor.monitor_id}</td>
+            <td>${monitor.name}</td>
+            <td>${monitor.monitor_type}</td>
+            <td>${monitor.status}</td>
+          </tr>
+        `;
+      });
+  
+      tableHTML += `
+          </tbody>
+        </table>
+      `;
+  
+      apiResponseDiv.innerHTML = tableHTML;
+    }
+
+    function plotStatusGraph(monitors) {
+      if (statusChart) {
+        statusChart.destroy(); // Destroy the previous chart before plotting a new one
+      }
+      
+      // Show the canvas now
+      statusChartCanvas.style.display = 'block';
+  
+      const statusCounts = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  
+      monitors.forEach(monitor => {
+        if (statusCounts.hasOwnProperty(monitor.status)) {
+          statusCounts[monitor.status]++;
+        }
+      });
+  
+      const statuses = Object.keys(statusCounts);
+      const counts = statuses.map(status => statusCounts[status]);
+  
+      const chartData = {
+        labels: statuses.map(status => `Status ${status}`),
+        datasets: [{
+          label: 'Monitor Status Distribution',
+          data: counts,
+          backgroundColor: ['rgba(255, 99, 132, 0.2)', 'rgba(54, 162, 235, 0.2)', 'rgba(255, 206, 86, 0.2)', 'rgba(75, 192, 192, 0.2)'],
+          borderColor: ['rgba(255, 99, 132, 1)', 'rgba(54, 162, 235, 1)', 'rgba(255, 206, 86, 1)', 'rgba(75, 192, 192, 1)'],
+          borderWidth: 1
+        }]
+      };
+  
+      const chartOptions = {
+        responsive: true,
+        scales: {
+          y: {
+            beginAtZero: true
+          }
+        }
+      };
+  
+      statusChart = new Chart(statusChartCanvas, {
+        type: 'bar',
+        data: chartData,
+        options: chartOptions
+      });
+    }
+
+    function displayMonitorDetails(monitor) {
+      const monitorHTML = `
+        <div>
+          <p><strong>Monitor ID:</strong> ${monitor.monitor_id}</p>
+          <p><strong>Name:</strong> ${monitor.name}</p>
+          <p><strong>Monitor Type:</strong> ${monitor.monitor_type}</p>
+          <p><strong>Status:</strong> ${monitor.status}</p>
+        </div>
+      `;
+      apiResponseDiv.innerHTML = monitorHTML;
+    }
+
+    function removeChart() {
+      if (statusChart) {
+        statusChart.destroy();
+      }
+      statusChartCanvas.style.display = 'none'; // Hide the chart canvas after search
+    }
+
+    const fetchServerDataButton = document.getElementById("fetchServerDataButton");
+  const serverResponseDiv = document.getElementById("serverResponse");
+
+  fetchServerDataButton.addEventListener("click", async () => {
+    serverResponseDiv.innerHTML = "Loading...";
+    const apiUrl = "http://localhost:3001/api/fetchServerData";
+
+    try {
+      const response = await fetch(apiUrl);
+      if (!response.ok) throw new Error(`Server Error: ${response.status}`);
+      const data = await response.json();
+
+      if (data && data.data && data.data.monitors_count) {
+        displayServerData(data.data.monitors_count);
+      } else {
+        serverResponseDiv.innerHTML =
+          "<p style='color: red;'>No server data available.</p>";
+      }
+    } catch (error) {
+      serverResponseDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+    }
+  });
+
+  function displayServerData(monitorsCount) {
+    let tableHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>Total</th>
+            <th>Hidden Alarms</th>
+            <th>Critical</th>
+            <th>Configuration Error</th>
+            <th>Discovery</th>
+            <th>Trouble</th>
+            <th>Up</th>
+            <th>Down</th>
+            <th>Maintenance</th>
+            <th>Suspended</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>${monitorsCount.total}</td>
+            <td>${monitorsCount.hidden_alarms}</td>
+            <td>${monitorsCount.critical}</td>
+            <td>${monitorsCount.configuration_error}</td>
+            <td>${monitorsCount.discovery}</td>
+            <td>${monitorsCount.trouble}</td>
+            <td>${monitorsCount.up}</td>
+            <td>${monitorsCount.down}</td>
+            <td>${monitorsCount.maintenance}</td>
+            <td>${monitorsCount.suspended}</td>
+          </tr>
+        </tbody>
+      </table>
+    `;
+
+    serverResponseDiv.innerHTML = tableHTML;
+  }
+  </script>  
+</body>
+</html>
