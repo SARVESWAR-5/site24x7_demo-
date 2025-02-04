@@ -15,7 +15,7 @@ app.get('/api/fetchData', async (req, res) => {
   try {
     const response = await axios.get('https://www.site24x7.com/app/api/short/current_status', {
       headers: {
-        'Authorization': 'Zoho-oauthtoken 1000.6330a69e8425352db80c76e543e46374.42c853e0779724e75fe5524475f3624d',
+        'Authorization': 'Zoho-oauthtoken 1000.ee5b5a29a3aefb467d5084416a6556b3.1fe24a3ad67453166b6f9bbc4c162b28',
         'Content-Type': 'application/json',
       }
     });
